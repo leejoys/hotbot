@@ -1,5 +1,65 @@
 package main
 
-func main() {
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"os"
+)
 
+func main() {
+	botToken := os.Getenv("hotToken")
+	botApi := "https://api.telegram.org/bot"
+	botUrl := botApi + botToken
+	offset := 0
+	for {
+		updates, err := getUpdates(botUrl, offset)
+		if err != nil {
+			log.Println("main Error:", err)
+		}
+		for _, update := range updates {
+			err := respond(botUrl, update)
+			offset = update.UpdateId + 1
+			if err != nil {
+				log.Println("main respond Error:", err)
+			}
+		}
+		fmt.Println(updates)
+	}
+}
+
+func getUpdates(botUrl string, offset int) ([]Update, error) {
+	resp, err := http.Get(botUrl + "/getUpdates" + "?offset=" + fmt.Sprint(offset))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var restResponse RestResponse
+	err = json.Unmarshal(body, &restResponse)
+	if err != nil {
+		return nil, err
+	}
+	return restResponse.Result, nil
+}
+
+func respond(botUrl string, update Update) error {
+	var botMessage BotMessage
+	botMessage.ChatId = update.Message.Chat.ChatId
+	botMessage.Text = update.Message.Text
+	buf, err := json.Marshal(botMessage)
+	if err != nil {
+		return err
+	}
+	_, err = http.Post(botUrl+"/sendMessage", "application/json", bytes.NewBuffer(buf))
+	if err != nil {
+		return err
+	}
+	return nil
 }
