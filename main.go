@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 func main() {
@@ -51,8 +53,12 @@ func getUpdates(botUrl string, offset int) ([]Update, error) {
 
 func respond(botUrl string, update Update) error {
 	var botMessage BotMessage
+	price, err := getPrice("https://ru.investing.com/currencies/" + update.Message.Text)
+	if err != nil {
+		return err
+	}
 	botMessage.ChatId = update.Message.Chat.ChatId
-	botMessage.Text = update.Message.Text
+	botMessage.Text = price
 	buf, err := json.Marshal(botMessage)
 	if err != nil {
 		return err
@@ -62,4 +68,22 @@ func respond(botUrl string, update Update) error {
 		return err
 	}
 	return nil
+}
+
+func getPrice(path string) (string, error) {
+	res, err := http.Get(path)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return "", err
+	}
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err != nil {
+		return "", err
+	}
+	price := doc.Find(".instrument-price_instrument-price__3uw25")
+	priceLast := price.Find(".text-2xl")
+	return priceLast.Text(), nil
 }
