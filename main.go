@@ -29,7 +29,6 @@ func main() {
 				log.Println("main respond Error:", err)
 			}
 		}
-		fmt.Println(updates)
 	}
 }
 
